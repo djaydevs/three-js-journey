@@ -84,7 +84,7 @@ donutFolder.add(debugObject, "resetDonuts").name("Reset Positions");
 const fontLoader = new FontLoader()
 
 fontLoader.load("/fonts/helvetiker_regular.typeface.json", (font) => {
-    const textGeometry = new TextGeometry("LegenDanny", {
+    const textGeometry = new TextGeometry("< djaydevs />", {
         font: font,
         size: 0.5,
         depth: 0.2,
