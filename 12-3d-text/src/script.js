@@ -4,12 +4,6 @@ import GUI from 'lil-gui'
 import { FontLoader } from "three/addons/loaders/FontLoader.js";
 import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
 
-/**
- * Base
- */
-// Debug
-const gui = new GUI()
-
 // Canvas
 const canvas = document.querySelector('canvas.webgl')
 
@@ -22,9 +16,67 @@ const scene = new THREE.Scene()
 /**
  * Textures
  */
-const textureLoader = new THREE.TextureLoader()
-const matcapTexture = textureLoader.load('/textures/matcaps/8.png')
-matcapTexture.colorSpace = THREE.SRGBColorSpace;
+// const matcapTexture = textureLoader.load('/textures/matcaps/8.png')
+// matcapTexture.colorSpace = THREE.SRGBColorSpace;
+
+const donuts = [];
+const matcapTextures = [];
+
+const textureLoader = new THREE.TextureLoader();
+
+for (let i = 1; i <= 8; i++) {
+  const texture = textureLoader.load(`/textures/matcaps/${i}.png`);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  matcapTextures.push(texture);
+}
+
+// Debug
+const gui = new GUI()
+
+const debugObject = {
+  matcapTexture: 8,
+  rotationEnabled: true,
+  rotationSpeed: 3,
+  fallingEnabled: true,
+  fallingSpeed: 2,
+  resetDonuts: () => {
+    donuts.forEach((donut) => {
+      donut.position.y = (Math.random() - 0.5) * 15;
+      donut.position.x = (Math.random() - 0.5) * 15;
+      donut.position.z = (Math.random() - 0.5) * 10;
+    });
+  },
+};
+
+const material = new THREE.MeshMatcapMaterial({
+  matcap: matcapTextures[debugObject.matcapTexture - 1],
+});
+
+const donutFolder = gui.addFolder("Donuts");
+donutFolder
+  .add(debugObject, "matcapTexture")
+  .min(1)
+  .max(8)
+  .step(1)
+  .name("Textures")
+  .onChange((value) => {
+    material.matcap = matcapTextures[value - 1];
+  });
+donutFolder.add(debugObject, "rotationEnabled").name("Enable Rotation");
+donutFolder
+  .add(debugObject, "rotationSpeed")
+  .min(0)
+  .max(5)
+  .step(0.1)
+  .name("Rotation Speed");
+donutFolder.add(debugObject, "fallingEnabled").name("Enable Falling");
+donutFolder
+  .add(debugObject, "fallingSpeed")
+  .min(0)
+  .max(5)
+  .step(0.1)
+  .name("Falling Speed");
+donutFolder.add(debugObject, "resetDonuts").name("Reset Positions");
 
 /**
  * Fonts
@@ -53,8 +105,8 @@ fontLoader.load("/fonts/helvetiker_regular.typeface.json", (font) => {
     //   );
     textGeometry.center()
 
-    const material = new THREE.MeshMatcapMaterial();
-    material.matcap = matcapTexture
+    // const material = new THREE.MeshMatcapMaterial();
+    // material.matcap = matcapTextures;
     //   textMaterial.wireframe = true
     const text = new THREE.Mesh(textGeometry, material);
     scene.add(text);
@@ -62,19 +114,26 @@ fontLoader.load("/fonts/helvetiker_regular.typeface.json", (font) => {
     const donutGeometry = new THREE.TorusGeometry(0.3, 0.2, 20, 45);
 
     Array.from({ length: 100 }, () => {
-        const donut = new THREE.Mesh(donutGeometry, material);
+      const donut = new THREE.Mesh(donutGeometry, material);
+      donut.shouldFall = false;
+      donut.fallDelay = Math.random() * 10;
 
-        donut.position.x = (Math.random() - 0.5) * 10;
-        donut.position.y = (Math.random() - 0.5) * 10;
-        donut.position.z = (Math.random() - 0.5) * 10;
+      donut.position.x = (Math.random() - 0.5) * 15;
+      donut.position.y = (Math.random() - 0.5) * 15;
+      donut.position.z = (Math.random() - 0.5) * 10;
 
-        donut.rotation.x = Math.random() * Math.PI;
-        donut.rotation.y = Math.random() * Math.PI;
+      donut.rotation.x = Math.random() * Math.PI;
+      donut.rotation.y = Math.random() * Math.PI;
 
-        const scale = Math.random();
-        donut.scale.set(scale, scale, scale);
+      donut.scale.set(0, 0, 0);
 
-        scene.add(donut);
+      donut.rotationSpeed = {
+        x: (Math.random() - 0.5) * 2,
+        y: (Math.random() - 0.5) * 2,
+      };
+
+      scene.add(donut);
+      donuts.push(donut);
     });
 });
 
@@ -141,16 +200,49 @@ const clock = new THREE.Clock()
 
 const tick = () =>
 {
-    const elapsedTime = clock.getElapsedTime()
+  const elapsedTime = clock.getElapsedTime();
 
-    // Update controls
-    controls.update()
+    donuts.forEach((donut, index) => {
+        if (debugObject.rotationEnabled) {
+            donut.rotation.x +=
+            donut.rotationSpeed.x * 0.01 * debugObject.rotationSpeed;
+            donut.rotation.y +=
+            donut.rotationSpeed.y * 0.01 * debugObject.rotationSpeed;
+        }
 
-    // Render
-    renderer.render(scene, camera)
+        if (debugObject.fallingEnabled) {
+          if (!donut.shouldFall && elapsedTime > donut.fallDelay) {
+            donut.shouldFall = true;
+          }
 
-    // Call tick again on the next frame
-    window.requestAnimationFrame(tick)
+          if (donut.shouldFall) {
+            donut.position.y -= 0.02 * debugObject.fallingSpeed;
+
+            if (donut.position.y < -15) {
+              donut.position.y = 15;
+              donut.position.x = (Math.random() - 0.5) * 15;
+              donut.position.z = (Math.random() - 0.5) * 10;
+              donut.shouldFall = false;
+              donut.fallDelay = elapsedTime + Math.random() * 5; // New random delay
+            }
+          }
+        }
+
+        const delay = index * 0.05;
+        if (elapsedTime > delay) {
+            const scale = Math.min((elapsedTime - delay) * 2, 1);
+            donut.scale.set(scale, scale, scale);
+        }
+    });
+
+  // Update controls
+  controls.update();
+
+  // Render
+  renderer.render(scene, camera);
+
+  // Call tick again on the next frame
+  window.requestAnimationFrame(tick);
 }
 
 tick()
